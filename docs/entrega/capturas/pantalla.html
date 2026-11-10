@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>GEREP · tutorial</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Calibri, Segoe UI, sans-serif; background: #eef1f4; color: #1e293b; }
+    .app { display: flex; width: 1120px; height: 700px; margin: 16px auto; background: #fff; border: 1px solid #d8dee6; overflow: hidden; }
+    aside { width: 250px; border-right: 1px solid #e2e8f0; background: #f8fafc; display: flex; flex-direction: column; }
+    .brand { height: 76px; border-bottom: 1px solid #e2e8f0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .brand img { height: 34px; }
+    .brand small { font-size: 10px; color: #64748b; margin-top: 4px; }
+    nav { flex: 1; overflow: auto; padding: 12px 10px; }
+    .g { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #94a3b8; padding: 8px 12px 6px; }
+    a.item { display: block; border-radius: 999px; padding: 8px 12px; font-size: 13px; color: #475569; text-decoration: none; margin-bottom: 4px; }
+    a.item.active { background: #1e293b; color: #fff; font-weight: 600; }
+    .foot { border-top: 1px solid #e2e8f0; padding: 12px; font-size: 11px; }
+    .foot b { display: block; font-size: 10px; color: #94a3b8; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+    main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    header { height: 76px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: 12px; padding: 0 20px; }
+    header .title { font-size: 14px; color: #64748b; }
+    header .title strong { color: #0f172a; }
+    .search { flex: 1; background: #f1f5f9; border-radius: 999px; padding: 8px 14px; font-size: 13px; color: #94a3b8; }
+    .chip { width: 32px; height: 32px; border-radius: 999px; border: 1px solid #e2e8f0; background: #fff; }
+    .content { flex: 1; padding: 20px 22px; background: #f8fafc; overflow: auto; }
+    h1 { font-size: 20px; margin-bottom: 4px; }
+    .sub { font-size: 13px; color: #64748b; margin-bottom: 16px; }
+    .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+    .kpi { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; }
+    .kpi span { display: block; font-size: 11px; color: #64748b; }
+    .kpi b { font-size: 22px; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
+    th, td { text-align: left; padding: 8px 10px; font-size: 12px; border-bottom: 1px solid #eef2f6; }
+    th { background: #1b3a4b; color: #fff; font-weight: 600; }
+    .btn { display: inline-block; background: #1e293b; color: #fff; border-radius: 999px; padding: 8px 14px; font-size: 12px; font-weight: 600; }
+    .badge { background: #e0f2fe; color: #075985; border-radius: 999px; padding: 2px 8px; font-size: 11px; }
+    .pipe { display: flex; gap: 6px; margin: 12px 0 16px; }
+    .pipe div { flex: 1; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px; font-size: 11px; text-align: center; }
+    .pipe div b { display: block; font-size: 16px; }
+  </style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<script>
+const q = new URLSearchParams(location.search).get('v') || 'panel'
+const items = [
+  ['General', [['Panel de control','panel'],['Expedientes','expedientes'],['Memos','memos']]],
+  ['1 · Planificación', [['Actividades','act'],['Estructura programática','prog'],['Planes administrativos','pa']]],
+  ['2 · Ejecución', [['Proyectos','proyectos'],['CDP','cdp'],['Actas','actas'],['Resoluciones','res'],['Convenios','conv']]],
+  ['3 · Pagos', [['STR · Solicitudes','str'],['Devoluciones','dev']]],
+  ['4 · Rendición', [['Rendiciones de cuentas','rend']]],
+]
+function nav(active) {
+  return items.map(([g, list]) => `<div class="g">${g}</div>` + list.map(([l,k]) =>
+    `<a class="item${k===active?' active':''}" href="?v=${k}">${l}</a>`).join('')).join('')
+}
+function shell(active, title, sub, inner) {
+  return `
+    <aside>
+      <div class="brand"><img src="icono.png" alt="GEREP"><small>Gestión de Recursos Públicos</small></div>
+      <nav>${nav(active)}</nav>
+      <div class="foot"><b>Unidad Ejecutora</b>Secretaría Nacional de Deportes</div>
+    </aside>
+    <main>
+      <header>
+        <div class="title"><strong>GEREP</strong> · v1.0.0 · Gestión de Recursos Públicos</div>
+        <div class="search">Buscar en el sistema…</div>
+        <div class="chip"></div><div class="chip"></div>
+      </header>
+      <div class="content">
+        <h1>${title}</h1>
+        <p class="sub">${sub}</p>
+        ${inner}
+      </div>
+    </main>`
+}
+const views = {
+  panel: shell('panel','Panel de control','Resumen de la cadena de ejecución y accesos rápidos.',
+    `<div class="kpis">
+      <div class="kpi"><span>Proyectos</span><b>48</b></div>
+      <div class="kpi"><span>STR</span><b>126</b></div>
+      <div class="kpi"><span>Expedientes en trámite</span><b>19</b></div>
+      <div class="kpi"><span>Rendiciones</span><b>34</b></div>
+    </div>
+    <p class="sub">Cadena: Actividad → Programa → Proyecto → CDP → Actas → Resoluciones → STR → Rendición.</p>`),
+  expedientes: shell('expedientes','Expedientes','Mesa de entrada: alta, derivación y seguimiento.',
+    `<p style="margin-bottom:10px"><span class="btn">+ Expediente</span></p>
+    <table><tr><th>N°</th><th>Asunto</th><th>Entidad</th><th>Estado</th></tr>
+    <tr><td>014/2026</td><td>SOLICITUD DE DESEMBOLSO</td><td>Municipalidad X</td><td><span class="badge">En proceso</span></td></tr>
+    <tr><td>013/2026</td><td>RENDICIÓN DE CUENTAS · STR 88</td><td>Club Deportivo</td><td><span class="badge">Recibido</span></td></tr>
+    <tr><td>012/2026</td><td>NOTA DE PEDIDO</td><td>Gobernación</td><td><span class="badge">Derivado</span></td></tr>
+    </table>`),
+  proyectos: shell('proyectos','Proyectos','Listado y ficha 360° del ciclo de ejecución.',
+    `<div class="pipe">
+      <div>Plan<b>Gs. 800 M</b></div><div>CDP<b>Gs. 620 M</b></div>
+      <div>Actas<b>Gs. 500 M</b></div><div>STR<b>Gs. 410 M</b></div>
+    </div>
+    <table><tr><th>Proyecto</th><th>Componente</th><th>Avance</th></tr>
+    <tr><td>Mejora de infraestructura deportiva</td><td>01 · Infraestructura</td><td>62%</td></tr>
+    <tr><td>Equipamiento de clubes</td><td>02 · Equipamiento</td><td>28%</td></tr>
+    </table>`),
+  str: shell('str','STR · Solicitudes de transferencia','Pagos vinculados al plan de una resolución.',
+    `<table><tr><th>N° STR</th><th>Proyecto</th><th>Fecha</th><th>Monto</th></tr>
+    <tr><td>STR 088</td><td>Mejora de infraestructura</td><td>02/09/2026</td><td>Gs. 45.000.000</td></tr>
+    <tr><td>STR 087</td><td>Equipamiento de clubes</td><td>28/08/2026</td><td>Gs. 12.500.000</td></tr>
+    </table>
+    <p class="sub" style="margin-top:10px">Cada STR se imputa a un ítem del plan presupuestario de una resolución.</p>`),
+}
+document.getElementById('app').innerHTML = views[q] || views.panel
+</script>
+</body>
+</html>

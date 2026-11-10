@@ -1,0 +1,11 @@
+node_modules
+dist
+dist._skip_deploy/
+.env
+.env.local
+.env*.local
+tmp/
+supabase/.temp/
+_tmp_probe_*
+tsconfig.tsbuildinfo
+audit.txt

@@ -1,0 +1,7 @@
+project_id = "oumwtlgiwakcuhzsrjus"
+
+[api]
+enabled = true
+
+[functions.notify-derivacion]
+verify_jwt = true
