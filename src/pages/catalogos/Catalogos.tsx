@@ -1,4 +1,7 @@
+import { useState } from 'react'
+import { FolderKanban } from 'lucide-react'
 import CrudModule from '../../components/CrudModule'
+import ProveedorProyectosModal from '../../components/ProveedorProyectosModal'
 import { Badge } from '../../components/ui'
 import { jsonTextListTexts } from '../../components/fields'
 import { Navigate } from 'react-router'
@@ -46,13 +49,27 @@ export function Entidades() {
 }
 
 export function Proveedores() {
+  const [proyectosDe, setProyectosDe] = useState<{ id: string; razon_social?: string | null } | null>(null)
+
   return (
+    <>
     <CrudModule
       table="proveedores"
       title="Proveedores"
       singular="Proveedor"
       subtitle="Proveedores y beneficiarios de los planes financieros"
       orderBy={{ column: 'razon_social', ascending: true }}
+      rowActions={row => (
+        <button
+          type="button"
+          title="Proyectos vinculados"
+          aria-label={`Proyectos vinculados de ${row.razon_social ?? 'proveedor'}`}
+          onClick={() => setProyectosDe({ id: String(row.id), razon_social: row.razon_social })}
+          className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-studio-violet"
+        >
+          <FolderKanban className="h-4 w-4" />
+        </button>
+      )}
       columns={[
         { key: 'razon_social', label: 'Razón social' },
         { key: 'documento', label: 'RUC / Documento' },
@@ -78,6 +95,8 @@ export function Proveedores() {
         { name: 'direccion', label: 'Dirección', type: 'text', colSpan2: true },
       ]}
     />
+    <ProveedorProyectosModal proveedor={proyectosDe} onClose={() => setProyectosDe(null)} />
+    </>
   )
 }
 
