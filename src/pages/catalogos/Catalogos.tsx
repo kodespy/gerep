@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { FolderKanban } from 'lucide-react'
 import CrudModule from '../../components/CrudModule'
 import ProveedorProyectosModal from '../../components/ProveedorProyectosModal'
+import type { ProveedorRef } from '../../lib/proveedorProyectos'
 import { Badge } from '../../components/ui'
 import { jsonTextListTexts } from '../../components/fields'
 import { Navigate } from 'react-router'
@@ -49,7 +50,7 @@ export function Entidades() {
 }
 
 export function Proveedores() {
-  const [proyectosDe, setProyectosDe] = useState<{ id: string; razon_social?: string | null } | null>(null)
+  const [proyectosDe, setProyectosDe] = useState<ProveedorRef | null>(null)
 
   return (
     <>
@@ -64,7 +65,7 @@ export function Proveedores() {
           type="button"
           title="Proyectos vinculados"
           aria-label={`Proyectos vinculados de ${row.razon_social ?? 'proveedor'}`}
-          onClick={() => setProyectosDe({ id: String(row.id), razon_social: row.razon_social })}
+          onClick={() => setProyectosDe({ id: String(row.id), razon_social: row.razon_social, documento: row.documento })}
           className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-studio-violet"
         >
           <FolderKanban className="h-4 w-4" />

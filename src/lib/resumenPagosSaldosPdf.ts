@@ -18,8 +18,8 @@ import {
 } from './pdf'
 import { drawPdfTable, PDF_TABLE_FONT, type PdfTableCell } from './pdfTable'
 
-const BRAND: [number, number, number] = [47, 28, 106]
-const HEAD: [number, number, number] = [46, 117, 182]
+export const BRAND: [number, number, number] = [47, 28, 106]
+export const HEAD: [number, number, number] = [46, 117, 182]
 const COLOR_PAGADO: [number, number, number] = [16, 185, 129]
 const COLOR_SALDO: [number, number, number] = [100, 116, 139]
 
@@ -39,7 +39,7 @@ function catalogLabel(codigo?: string | null, descripcion?: string | null): stri
 }
 
 /** Anchos que suman exactamente el área útil (margen máximo). */
-function cols(pageW: number, specs: Array<{ w: number; halign?: 'left' | 'right' | 'center' }>) {
+export function cols(pageW: number, specs: Array<{ w: number; halign?: 'left' | 'right' | 'center' }>) {
   const usable = pageW - PDF_MARGIN_MM * 2
   const sum = specs.reduce((s, c) => s + c.w, 0)
   const scale = sum > 0 ? usable / sum : 1
@@ -215,7 +215,7 @@ function renderPlanVsPagadoPie(
   return canvas.toDataURL('image/png')
 }
 
-function sectionTitle(doc: jsPDF, layout: PdfLayout, y: number, title: string): number {
+export function sectionTitle(doc: jsPDF, layout: PdfLayout, y: number, title: string): number {
   y = pdfEnsureSpace(doc, y, 12, layout)
   doc.setFillColor(...BRAND)
   doc.rect(PDF_MARGIN_MM, y, pdfPageWidth(doc) - PDF_MARGIN_MM * 2, 7, 'F')
@@ -227,7 +227,7 @@ function sectionTitle(doc: jsPDF, layout: PdfLayout, y: number, title: string): 
   return y + 11
 }
 
-function drawKpiRow(
+export function drawKpiRow(
   doc: jsPDF,
   layout: PdfLayout,
   y: number,

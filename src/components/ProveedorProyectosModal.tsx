@@ -1,132 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, FileDown, FileSpreadsheet, Loader2 } from 'lucide-react'
 import { EmptyState, LoadErrorState, Modal, Spinner } from './ui'
-import { supabase } from '../lib/supabase'
 import { fmtDate, fmtMoney } from '../lib/format'
-import { ajusteAdenda } from '../lib/planVigente'
-import { calcAvanceDesembolso, calcSaldoDisponible, calcStrNeto } from '../lib/proyectoSaldos'
-
-type StrDetalle = {
-  id: string
-  numero: string
-  fecha: string | null
-  og: string
-  fuente: string
-  monto: number
-  devoluciones: number
-  neto: number
-  /** Saldo del proyecto después de este STR (plan vigente − STR neto acumulado). */
-  saldo: number
-}
-
-type ProyectoVinculado = {
-  id: string
-  descripcion: string
-  /** Suma de las líneas del plan financiero asignadas a este proveedor. */
-  montoProveedor: number
-  planBase: number
-  planVigente: number
-  strNeto: number
-  saldo: number
-  avancePct: number
-  strs: StrDetalle[]
-}
-
-function nest(v: any): any {
-  return Array.isArray(v) ? v[0] : v
-}
-
-function sumBy<T>(rows: T[], fn: (r: T) => number): number {
-  return rows.reduce((s, r) => s + fn(r), 0)
-}
-
-async function loadProyectosVinculados(proveedorId: string): Promise<ProyectoVinculado[]> {
-  const { data: lineas, error: lineasErr } = await supabase
-    .from('planes_financieros')
-    .select('proyecto_id, monto')
-    .eq('proveedor_id', proveedorId)
-  if (lineasErr) throw lineasErr
-
-  const ids = [...new Set((lineas ?? []).map(l => String(l.proyecto_id ?? '')).filter(Boolean))]
-  if (!ids.length) return []
-
-  const [proys, planes, adendas, strs, devs] = await Promise.all([
-    supabase.from('proyectos').select('id, descripcion, monto').in('id', ids),
-    supabase.from('planes_financieros').select('proyecto_id, monto').in('proyecto_id', ids),
-    supabase
-      .from('adendas')
-      .select('monto_ajuste, tipo_ajuste, estado, plan:planes_financieros!inner(proyecto_id)')
-      .in('plan.proyecto_id', ids),
-    supabase
-      .from('strs')
-      .select('id, proyecto_id, numero, fecha, monto, og:objetos_de_gastos(codigo), fuente:fuentes_financiamiento(descripcion)')
-      .in('proyecto_id', ids)
-      .order('fecha', { ascending: true })
-      .order('numero', { ascending: true }),
-    supabase
-      .from('devoluciones')
-      .select('str_id, monto, str:strs!inner(proyecto_id)')
-      .in('str.proyecto_id', ids),
-  ])
-  const failed = [proys, planes, adendas, strs, devs].find(r => r.error)
-  if (failed?.error) throw failed.error
-
-  const devPorStr = new Map<string, number>()
-  for (const d of devs.data ?? []) {
-    const key = String(d.str_id ?? '')
-    devPorStr.set(key, (devPorStr.get(key) ?? 0) + (Number(d.monto) || 0))
-  }
-
-  return (proys.data ?? [])
-    .map(p => {
-      const id = String(p.id)
-      const planBase = sumBy((planes.data ?? []).filter(l => String(l.proyecto_id) === id), l => Number(l.monto) || 0)
-        || Number(p.monto) || 0
-      const adendaTotal = sumBy(
-        (adendas.data ?? []).filter((a: any) => String(nest(a.plan)?.proyecto_id) === id),
-        (a: any) => ajusteAdenda(a),
-      )
-      const planVigente = planBase + adendaTotal
-
-      let netoAcumulado = 0
-      const strRows: StrDetalle[] = (strs.data ?? [])
-        .filter(s => String(s.proyecto_id) === id)
-        .map((s: any) => {
-          const monto = Number(s.monto) || 0
-          const devoluciones = devPorStr.get(String(s.id)) ?? 0
-          const neto = calcStrNeto(monto, devoluciones)
-          netoAcumulado += neto
-          return {
-            id: String(s.id),
-            numero: String(s.numero ?? '—'),
-            fecha: s.fecha ?? null,
-            og: nest(s.og)?.codigo ?? '—',
-            fuente: nest(s.fuente)?.descripcion ?? '—',
-            monto,
-            devoluciones,
-            neto,
-            saldo: planVigente - netoAcumulado,
-          }
-        })
-
-      const strBruto = sumBy(strRows, s => s.monto)
-      const devolTotal = sumBy(strRows, s => s.devoluciones)
-      const strNeto = calcStrNeto(strBruto, devolTotal)
-      return {
-        id,
-        descripcion: String(p.descripcion ?? '—'),
-        montoProveedor: sumBy((lineas ?? []).filter(l => String(l.proyecto_id) === id), l => Number(l.monto) || 0),
-        planBase,
-        planVigente,
-        strNeto,
-        saldo: calcSaldoDisponible(planVigente, strBruto, devolTotal),
-        avancePct: calcAvanceDesembolso(planVigente, strNeto),
-        strs: strRows,
-      }
-    })
-    .sort((a, b) => a.descripcion.localeCompare(b.descripcion, 'es'))
-}
+import {
+  esParticipacionParcial,
+  loadProyectosVinculados,
+  totalesProveedor,
+  type ProveedorRef,
+  type ProyectoVinculado,
+} from '../lib/proveedorProyectos'
+import { exportProveedorProyectosExcel, exportProveedorProyectosPdf } from '../lib/proveedorProyectosExport'
 
 function Kpi({ label, value, tone = 'text-slate-800' }: { label: string; value: string; tone?: string }) {
   return (
@@ -143,8 +27,6 @@ function saldoTone(v: number): string {
 
 function ProyectoBlock({ p, defaultOpen }: { p: ProyectoVinculado; defaultOpen: boolean }) {
   const [open, setOpen] = useState(defaultOpen)
-  const devolTotal = sumBy(p.strs, s => s.devoluciones)
-  const brutoTotal = sumBy(p.strs, s => s.monto)
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200/80 dark:border-slate-700">
@@ -161,7 +43,7 @@ function ProyectoBlock({ p, defaultOpen }: { p: ProyectoVinculado; defaultOpen: 
           <p className="text-sm font-semibold leading-snug text-slate-800 dark:text-slate-100">{p.descripcion}</p>
           <p className="mt-0.5 text-[11px] text-slate-500">
             {p.strs.length} STR · Avance {p.avancePct}%
-            {Math.round(p.montoProveedor) !== Math.round(p.planBase) && (
+            {esParticipacionParcial(p) && (
               <> · Líneas del proveedor en el plan: <span className="font-semibold tabular-nums">{fmtMoney(p.montoProveedor)}</span></>
             )}
           </p>
@@ -220,8 +102,8 @@ function ProyectoBlock({ p, defaultOpen }: { p: ProyectoVinculado; defaultOpen: 
                 <tfoot>
                   <tr className="border-t border-slate-300 font-bold dark:border-slate-600">
                     <td className="py-1.5 pr-2" colSpan={4}>Total</td>
-                    <td className="py-1.5 pr-2 text-right tabular-nums">{fmtMoney(brutoTotal)}</td>
-                    <td className="py-1.5 pr-2 text-right tabular-nums">{devolTotal ? fmtMoney(devolTotal) : '—'}</td>
+                    <td className="py-1.5 pr-2 text-right tabular-nums">{fmtMoney(p.strBruto)}</td>
+                    <td className="py-1.5 pr-2 text-right tabular-nums">{p.devoluciones ? fmtMoney(p.devoluciones) : '—'}</td>
                     <td className="py-1.5 pr-2 text-right tabular-nums">{fmtMoney(p.strNeto)}</td>
                     <td className={`py-1.5 text-right tabular-nums ${saldoTone(p.saldo)}`}>{fmtMoney(p.saldo)}</td>
                   </tr>
@@ -244,11 +126,12 @@ export default function ProveedorProyectosModal({
   proveedor,
   onClose,
 }: {
-  proveedor: { id: string; razon_social?: string | null } | null
+  proveedor: ProveedorRef | null
   onClose: () => void
 }) {
   const [proyectos, setProyectos] = useState<ProyectoVinculado[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [exporting, setExporting] = useState<'pdf' | 'xlsx' | null>(null)
   const proveedorId = proveedor?.id ? String(proveedor.id) : null
 
   const load = useCallback(async () => {
@@ -264,14 +147,22 @@ export default function ProveedorProyectosModal({
 
   useEffect(() => { void load() }, [load])
 
-  const totales = useMemo(() => {
-    const list = proyectos ?? []
-    return {
-      monto: sumBy(list, p => p.planVigente),
-      ejecutado: sumBy(list, p => p.strNeto),
-      saldo: sumBy(list, p => p.saldo),
+  const totales = useMemo(() => totalesProveedor(proyectos ?? []), [proyectos])
+
+  const runExport = async (kind: 'pdf' | 'xlsx') => {
+    if (!proveedor || !proyectos?.length) return
+    setExporting(kind)
+    try {
+      if (kind === 'pdf') await exportProveedorProyectosPdf(proveedor, proyectos)
+      else await exportProveedorProyectosExcel(proveedor, proyectos)
+    } catch (e: any) {
+      alert(e?.message ?? 'No se pudo generar el archivo.')
+    } finally {
+      setExporting(null)
     }
-  }, [proyectos])
+  }
+
+  const exportBtn = 'flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-40'
 
   return (
     <Modal
@@ -296,6 +187,26 @@ export default function ProveedorProyectosModal({
         />
       ) : (
         <div className="space-y-3">
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              disabled={exporting !== null}
+              onClick={() => void runExport('pdf')}
+              className={`${exportBtn} border-rose-200 bg-rose-50 text-rose-800 hover:bg-rose-100`}
+            >
+              {exporting === 'pdf' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+              PDF
+            </button>
+            <button
+              type="button"
+              disabled={exporting !== null}
+              onClick={() => void runExport('xlsx')}
+              className={`${exportBtn} border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100`}
+            >
+              {exporting === 'xlsx' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+              Excel
+            </button>
+          </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <Kpi label={`Monto total (${proyectos.length} proyecto${proyectos.length === 1 ? '' : 's'})`} value={fmtMoney(totales.monto)} />
             <Kpi label="Ejecutado (STR neto)" value={fmtMoney(totales.ejecutado)} tone="text-brand-700" />
