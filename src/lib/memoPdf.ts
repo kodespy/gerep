@@ -193,9 +193,6 @@ export async function exportMemoPdf(memoId: string): Promise<void> {
     contentTop: headerLineY + 8,
     contentBottom: pdfPageHeight(doc) - 38,
   }
-  layout.onAddPage = d => drawMemoChrome(d, layout, 1, 1)
-
-  drawMemoChrome(doc, layout, 1, 1)
 
   const pageW = pdfPageWidth(doc)
   let y = layout.contentTop
